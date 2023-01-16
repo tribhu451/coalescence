@@ -1,0 +1,6 @@
+# The code will not read any empty line or any line that starts with "#"
+
+
+nEvents	100000000
+input_read_mode	2
+include_weak_decay 1

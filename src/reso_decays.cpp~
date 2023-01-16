@@ -1,0 +1,494 @@
+#include "reso_decays.h"
+
+reso_decays::reso_decays(read_pdg* pdg_ ) : pdg(pdg_) {
+  uniform_rand = new TRandom3();
+  uniform_rand->SetSeed(0);
+}
+
+reso_decays::~reso_decays(){
+}
+
+void reso_decays::perform_decays(events* Event){
+
+  auto start = high_resolution_clock::now();
+
+  int Nparticles = Event->get_multiplicity_of_the_event();
+  std::cout << "Multiplicity of the event : " << 
+                 Nparticles << " ... " << std::endl ;   
+
+  std::list<particles> temp_part_vect ; 
+  std::list<particles> resonance_list ; // a temporary list of resonances
+                                        // created for current event.
+
+  for(int ipart=0; ipart<Nparticles; ipart++){
+    temp_part_vect.push_back( *Event->get_particle(ipart) );
+  }
+
+  Event->clear_particle_vector();
+  //Nparticles = Event->get_multiplicity_of_the_event();
+  //std::cout << "Multiplicity of the event : " << 
+  //               Nparticles << " ... " << std::endl ; 
+
+  /*
+  int PID = pdg->get_particle_from_pid( temp_part_vect[50].get_pid() )->get_pid() ;
+  std::cout << "PID of the particle : " << PID << std::endl ; 
+  double M = pdg->get_particle_from_pid( temp_part_vect[50].get_pid() )->get_mass() ; 
+  cout << "Mass of the particle : " << M << std::endl ; 
+  double M_width = pdg->get_particle_from_pid( temp_part_vect[50].get_pid() )->get_width() ; 
+  std::cout << "Width of the particle : " << M_width << std::endl ;
+  */ 
+
+  for (auto &part_i: temp_part_vect) {
+    if(pdg->get_particle_from_pid( part_i.get_pid())->is_stable() > 0)
+      Event->add_particle(&part_i);
+    else
+      resonance_list.push_back(part_i);
+  }
+  temp_part_vect.clear() ; 
+
+
+  std::cout << "No. of stable particles : " << Event->get_multiplicity_of_the_event() << " ..." << std::endl ; 
+  std::cout << "No. of decayble particles : " << resonance_list.size() << " ..." << std::endl ;
+  std::cout << "Performing decays ... " << std::endl ;  
+
+
+  /*
+  std::cout << "=========\n" << std::endl ;  
+  pdg_properties* reso_part = pdg->get_particle_from_pid( resonance_list.front().get_pid() ) ; 
+  cout << "Resonance : " <<  reso_part->get_pid() << endl ; 
+  cout << "Resonance decay channels : " << reso_part->get_decay_table()->get_channel_count() << endl ;
+  for(int ii=0; ii< reso_part->get_decay_table()->get_channel_count(); ii++){
+    cout << "Channel No. : " << ii << endl ;
+    cout << "Resonance decay Daughter-1 : " << reso_part->get_decay_table()->get_decay_channel(ii)->get_daughter_1() << endl ;
+    cout << "Resonance decay Daughter-2 : " << reso_part->get_decay_table()->get_decay_channel(ii)->get_daughter_2() << endl ;
+    cout << "Resonance decay Daughter-3 : " << reso_part->get_decay_table()->get_decay_channel(ii)->get_daughter_3() << endl ;
+    cout << "Branching Ratio : " << reso_part->get_decay_table()->get_decay_channel(ii)->get_branching_ratio() << " ... \n" << endl ;
+  }
+ */
+
+ while (resonance_list.size() > 0) {
+    if( pdg->does_the_particle_exist( resonance_list.front().get_pid() ) < 1 ){
+      std::cout << "particle with PID " << resonance_list.front().get_pid() <<
+               "does not exist in the current particle database." << std::endl ; 
+      exit(1);
+    }
+
+    // collect resonances pid,t,x,y,z,E,px,py and pz . Mass, 
+    // decay channles and corresponding branching ratio of mother
+    // will be obtained later from particle database(PDG) using 
+    // mother's PID . 
+    double mother_pid  = resonance_list.front().get_pid() ;  
+    double mother_t    = resonance_list.front().get_t() ; 
+    double mother_x    = resonance_list.front().get_x() ; 
+    double mother_y    = resonance_list.front().get_y() ; 
+    double mother_z    = resonance_list.front().get_z() ; 
+    double mother_e    = resonance_list.front().get_e() ; 
+    double mother_px   = resonance_list.front().get_px() ; 
+    double mother_py   = resonance_list.front().get_py() ; 
+    double mother_pz   = resonance_list.front().get_pz() ; 
+    pdg_properties* mother_info_in_pdg = pdg->get_particle_from_pid( mother_pid ) ; 
+    double mother_mass     = mother_info_in_pdg->get_mass() ; 
+    double mother_width    = mother_info_in_pdg->get_width() ; 
+
+    resonance_list.pop_front();
+    int Ndecay_channels = mother_info_in_pdg->get_decay_table()->get_channel_count() ;
+ 
+    int Nbody_decay = 0 ; 
+    double random_local = uniform_rand->Rndm();
+    double cumulated_branching_ratio = 0.0;
+    decay_channel* picked_channel = NULL;
+    for (int i_channel = 0; i_channel < Ndecay_channels; i_channel++) {
+      cumulated_branching_ratio += 
+           mother_info_in_pdg->get_decay_table()->get_decay_channel(i_channel)->get_branching_ratio() ; 
+      if(cumulated_branching_ratio > random_local) {
+        picked_channel = mother_info_in_pdg->get_decay_table()->get_decay_channel(i_channel);
+        if(mother_info_in_pdg->get_decay_table()->get_decay_channel(i_channel)->is_two_body_decay() == 1 ){
+          Nbody_decay  =  2 ;
+        }
+        else{
+          Nbody_decay  =  3 ;
+        }
+        break;
+      }
+      else{ //nothing
+      }
+    }
+
+
+    // std::cout << "Random No. : " << random_local << endl ;
+    // std::cout << "Resonance decay Daughter-1 : " << picked_channel->get_daughter_1() << std::endl ;
+    // std::cout << "Resonance decay Daughter-2 : " << picked_channel->get_daughter_2() << std::endl ;
+    // std::cout << "Resonance decay Daughter-3 : " << picked_channel->get_daughter_3() << std::endl ;
+    // std::cout << "Branching Ratio : " << picked_channel->get_branching_ratio() << " ... \n" << std::endl ;
+
+
+    if( Nbody_decay == 2 ){
+      double daughter_1_mass = pdg->get_particle_from_pid( picked_channel->get_daughter_1() )->get_mass() ; 
+      double daughter_2_mass = pdg->get_particle_from_pid( picked_channel->get_daughter_2() )->get_mass() ;
+      int daughter_1_stability = pdg->get_particle_from_pid( picked_channel->get_daughter_1() )->is_stable() ; 
+      int daughter_2_stability = pdg->get_particle_from_pid( picked_channel->get_daughter_2() )->is_stable() ;
+      int daughter_1_pid = pdg->get_particle_from_pid( picked_channel->get_daughter_1() )->get_pid() ; 
+      int daughter_2_pid = pdg->get_particle_from_pid( picked_channel->get_daughter_2() )->get_pid() ;
+   
+      if(mother_mass < (daughter_1_mass + daughter_2_mass) ){
+        particles* m_proxy = new particles();
+        m_proxy->set_pid(mother_pid);
+        m_proxy->set_t(mother_t);
+        m_proxy->set_x(mother_x);
+        m_proxy->set_y(mother_y);
+        m_proxy->set_z(mother_z);
+        m_proxy->set_e(mother_e);
+        m_proxy->set_px(mother_px);
+        m_proxy->set_py(mother_py);
+        m_proxy->set_pz(mother_pz);
+        resonance_list.push_back(*m_proxy);
+        continue ;
+      }
+
+      particles* daughter1 = new particles();
+      particles* daughter2 = new particles(); 
+      perform_two_body_decay( mother_pid,  mother_mass,  mother_width,mother_t,mother_x, mother_y,mother_z, mother_e,  mother_px,  mother_py,  mother_pz, daughter_1_mass, daughter_2_mass, daughter_1_pid, daughter_2_pid, daughter1, daughter2) ;
+
+    // std::cout << mother_pid << " -> " << daughter_1_pid << " + " << daughter_2_pid << std::endl ;  
+
+     if(daughter_1_stability > 0)
+        Event->add_particle(daughter1);
+      else
+         resonance_list.push_back(*daughter1);
+
+     if(daughter_2_stability > 0)
+        Event->add_particle(daughter2);
+      else
+         resonance_list.push_back(*daughter2);
+  
+    } // if two body decay
+
+    if( Nbody_decay == 3 ){
+      double daughter_1_mass = pdg->get_particle_from_pid( picked_channel->get_daughter_1() )->get_mass() ; 
+      double daughter_2_mass = pdg->get_particle_from_pid( picked_channel->get_daughter_2() )->get_mass() ;
+      double daughter_3_mass = pdg->get_particle_from_pid( picked_channel->get_daughter_3() )->get_mass() ;
+      int daughter_1_pid = pdg->get_particle_from_pid( picked_channel->get_daughter_1() )->get_pid() ; 
+      int daughter_2_pid = pdg->get_particle_from_pid( picked_channel->get_daughter_2() )->get_pid() ;
+      int daughter_3_pid = pdg->get_particle_from_pid( picked_channel->get_daughter_3() )->get_pid() ;
+      int daughter_1_stability = pdg->get_particle_from_pid( picked_channel->get_daughter_1() )->is_stable() ; 
+      int daughter_2_stability = pdg->get_particle_from_pid( picked_channel->get_daughter_2() )->is_stable() ;
+      int daughter_3_stability = pdg->get_particle_from_pid( picked_channel->get_daughter_3() )->is_stable() ;
+
+      if(mother_mass < (daughter_1_mass + daughter_2_mass + daughter_3_mass ) ){
+        particles* m_proxy = new particles();
+        m_proxy->set_pid(mother_pid);
+        m_proxy->set_t(mother_t);
+        m_proxy->set_x(mother_x);
+        m_proxy->set_y(mother_y);
+        m_proxy->set_z(mother_z);
+        m_proxy->set_e(mother_e);
+        m_proxy->set_px(mother_px);
+        m_proxy->set_py(mother_py);
+        m_proxy->set_pz(mother_pz);
+        resonance_list.push_back(*m_proxy);
+        continue ;
+      }
+
+      particles* daughter1 = new particles();
+      particles* daughter2 = new particles(); 
+      particles* daughter3 = new particles(); 
+      perform_three_body_decay( mother_pid,  mother_mass,  mother_width,
+               mother_t,  mother_x,   mother_y,   mother_z,
+               mother_e,  mother_px,  mother_py,  mother_pz, 
+               daughter_1_mass, daughter_2_mass, daughter_3_mass,daughter_1_pid, 
+               daughter_2_pid,daughter_3_pid, daughter1, daughter2, daughter3) ;
+     // std::cout << mother_pid << " -> " << daughter_1_pid << " + " << daughter_2_pid << " + " << daughter_3_pid << std::endl ;
+     if(daughter_1_stability > 0)
+        Event->add_particle(daughter1);
+      else
+         resonance_list.push_back(*daughter1);
+
+     if(daughter_2_stability > 0)
+        Event->add_particle(daughter2);
+      else
+         resonance_list.push_back(*daughter2);
+
+     if(daughter_3_stability > 0)
+        Event->add_particle(daughter3);
+      else
+         resonance_list.push_back(*daughter3);
+    } // if 3 body decay
+
+  } // while resonance list size > 0 
+
+  std::cout << "No. of stable particles : " << Event->get_multiplicity_of_the_event() << " ..." << std::endl ; 
+  std::cout << "No. of decayble particles : " << resonance_list.size() << " ..." << std::endl ;
+  resonance_list.clear() ; 
+
+  auto stop = high_resolution_clock::now();
+  auto duration = duration_cast<seconds>(stop - start);
+  std::cout << "Resonance decays of the current event finished in " << duration.count() 
+           << " sec.  ... "  << std::endl;
+  std::cout << "=============================================================" << std::endl ; 
+
+
+}
+
+
+
+//! This function perform two body decay
+void reso_decays::perform_two_body_decay(int mopid, double mom, double mow,
+              double mot, double mox,  double moy,  double moz,
+              double moe, double mopx, double mopy, double mopz, 
+              double dt1m, double dt2m, int dt1pid, int dt2pid, particles* daughter1, particles* daughter2) {
+
+    double M_pole = mom ;
+    double M_width = mow;
+    double m1 = dt1m;
+    double m2 = dt2m;
+    double M_min = m1 + m2;
+    if (M_pole < M_min) {
+        cout << "Error:particleSamples::perform_two_body_decay:"
+             << "can not found decays!" << endl;
+        cout << "M = " << M_pole << ", m1 = " << m1 << ", m2 = " << m2 << endl;
+        cout << "Mother: " << mopid << endl;
+        exit(1);
+    }
+    //double M_sampled = sample_breit_wigner(M_pole, M_width, M_min);
+    double M_sampled = M_pole;
+    double temp = M_sampled*M_sampled - m1*m1 - m2*m2;
+    double p_lrf = sqrt(temp*temp - 4*m1*m1*m2*m2)/(2*M_sampled);
+
+    // randomly pick emission angle
+    double phi = uniform_rand->Rndm()*2*M_PI;
+    double cos_theta = 2.*(uniform_rand->Rndm() - 0.5);
+    double sin_theta = sqrt(1. - cos_theta*cos_theta);
+
+    // compute daughter particles' energy and momentum in the rest frame
+    double E1_lrf = sqrt(p_lrf*p_lrf + m1*m1);
+    double p1_lrf_x = p_lrf*sin_theta*cos(phi);
+    double p1_lrf_y = p_lrf*sin_theta*sin(phi);
+    double p1_lrf_z = p_lrf*cos_theta;
+    double E2_lrf = sqrt(p_lrf*p_lrf + m2*m2);
+    double p2_lrf_x = -p1_lrf_x;
+    double p2_lrf_y = -p1_lrf_y;
+    double p2_lrf_z = -p1_lrf_z;
+
+    // compute mother velocity
+    double vx = mopx/moe;
+    double vy = mopy/moe;
+    double vz = mopz/moe;
+
+    // perform the boost
+    double v2 = vx*vx + vy*vy + vz*vz;
+    double gamma = 1./sqrt(1. - v2);
+    double gamma_m_1 = gamma - 1.;
+    double vp1 = vx*p1_lrf_x + vy*p1_lrf_y + vz*p1_lrf_z;
+    double vp2 = vx*p2_lrf_x + vy*p2_lrf_y + vz*p2_lrf_z;
+    double daughter1_E = gamma*(E1_lrf + vp1);
+    double daughter1_px = p1_lrf_x + (gamma_m_1*vp1/v2 + gamma*E1_lrf)*vx;
+    double daughter1_py = p1_lrf_y + (gamma_m_1*vp1/v2 + gamma*E1_lrf)*vy;
+    double daughter1_pz = p1_lrf_z + (gamma_m_1*vp1/v2 + gamma*E1_lrf)*vz;
+    double daughter2_E = gamma*(E2_lrf + vp2);
+    double daughter2_px = p2_lrf_x + (gamma_m_1*vp2/v2 + gamma*E2_lrf)*vx;
+    double daughter2_py = p2_lrf_y + (gamma_m_1*vp2/v2 + gamma*E2_lrf)*vy;
+    double daughter2_pz = p2_lrf_z + (gamma_m_1*vp2/v2 + gamma*E2_lrf)*vz;
+
+    double life_time = 1e10;
+    if (M_width > 1e-10) {
+        // compute life-time = gamma*1/\Gamma
+        double tau0 = moe/(M_sampled)*1./(mow);
+        life_time = -tau0*log(uniform_rand->Rndm());
+        life_time *= 0.19733 ;  // convert to fm
+    }
+
+    double daughter1_t = mot + life_time;
+    double daughter1_x = mox + vx*life_time;
+    double daughter1_y = moy + vy*life_time;
+    double daughter1_z = moz + vz*life_time;
+    double daughter2_t = mot + life_time;
+    double daughter2_x = mox + vx*life_time;
+    double daughter2_y = moy + vy*life_time;
+    double daughter2_z = moz + vz*life_time;
+
+
+   daughter1->set_pid (dt1pid) ; 
+   daughter1->set_t   (daughter1_t) ; 
+   daughter1->set_x   (daughter1_x) ; 
+   daughter1->set_y   (daughter1_y) ; 
+   daughter1->set_z   (daughter1_z) ; 
+   daughter1->set_e   (daughter1_E) ; 
+   daughter1->set_px  (daughter1_px) ; 
+   daughter1->set_py  (daughter1_py) ; 
+   daughter1->set_pz  (daughter1_pz) ; 
+
+   daughter2->set_pid (dt2pid) ; 
+   daughter2->set_t   (daughter2_t) ; 
+   daughter2->set_x   (daughter2_x) ; 
+   daughter2->set_y   (daughter2_y) ; 
+   daughter2->set_z   (daughter2_z) ; 
+   daughter2->set_e   (daughter2_E) ; 
+   daughter2->set_px  (daughter2_px) ; 
+   daughter2->set_py  (daughter2_py) ; 
+   daughter2->set_pz  (daughter2_pz) ; 
+
+
+}
+
+
+
+//! This function perform 3 body decays
+void reso_decays::perform_three_body_decay(int mopid, double mom, double mow,
+              double mot, double mox,  double moy,  double moz,
+              double moe, double mopx, double mopy, double mopz, 
+              double dt1m, double dt2m,  double dt3m ,int dt1pid, int dt2pid, int dt3pid,
+              particles* daughter1, particles* daughter2, particles* daughter3 ) {
+    double M_pole = mom;
+    double M_width = mow;
+    double m1 = dt1m ;
+    double m2 = dt2m ;
+    double m3 = dt3m ;
+    double M_min = m1 + m2 + m3;
+    if (M_pole < M_min) {
+        cout << "Error:particleSamples::perform_three_body_decay:"
+             << "can not found decays!" << endl;
+        cout << "M = " << M_pole << ", m1 = " << m1 << ", m2 = " << m2
+             << ", m3 = " << m3 << endl;
+        cout << "reso: " << mopid <<  endl;
+        exit(1);
+    }
+    //double M_sampled = sample_breit_wigner(M_pole, M_width, M_min);
+    double M_sampled = M_pole;
+    // generate lrf E1, E2, and theta12 using accept and reject method
+    double E1_lrf, E2_lrf, E3_lrf, p1_lrf, p2_lrf, cos12_lrf;
+    do {
+        do {
+            E1_lrf = uniform_rand->Rndm()*(M_sampled - m1 - m2 - m3) + m1;
+            E2_lrf = uniform_rand->Rndm()*(M_sampled - m1 - m2 - m3) + m2;
+        } while (E1_lrf + E2_lrf > M_sampled);
+        p1_lrf = sqrt(E1_lrf*E1_lrf - m1*m1);
+        p2_lrf = sqrt(E2_lrf*E2_lrf - m2*m2);
+        double E3_lrf = M_sampled - E1_lrf - E2_lrf;
+        cos12_lrf = (E3_lrf*E3_lrf - p1_lrf*p1_lrf - p2_lrf*p2_lrf - m3*m3)
+                     /(2.*p1_lrf*p2_lrf);
+    } while (cos12_lrf < - 1.0 || cos12_lrf > 1.0);
+    // now we get the a good sample
+
+    // sample the lifetime
+    double life_time = 1e10;
+    if (M_width > 1e-10) {
+        double tau = moe/(M_sampled)*1./M_width;
+        life_time = -tau*log(uniform_rand->Rndm());
+        life_time *= 0.19733 ;  // convert unit to fm
+    }
+    // compute the decay position
+    double decay_time = mot + life_time;
+    double decay_x = mox + mopx/moe*life_time;
+    double decay_y = moy + mopy/moe*life_time;
+    double decay_z = moz + mopz/moe*life_time;
+
+    // compute the momentum of decay daughters
+    double tp2_lrf_x = p2_lrf*sqrt(1. - cos12_lrf*cos12_lrf);
+    double tp2_lrf_z = p2_lrf*cos12_lrf;
+    double tp3_lrf_x = - tp2_lrf_x;
+    double tp3_lrf_z = - (p1_lrf + tp2_lrf_z); 
+    double phi = 2.*M_PI*uniform_rand->Rndm();
+    double ksi = 2.*M_PI*uniform_rand->Rndm();
+    double cos_theta = 2.*uniform_rand->Rndm() - 1.0;
+
+    double sin_phi = sin(phi);
+    double cos_phi = cos(phi);
+    double sin_ksi = sin(ksi);
+    double cos_ksi = cos(ksi);
+    double sin_theta = sqrt(1. - cos_theta*cos_theta);
+
+    double p1_lrf_x = - p1_lrf*sin_theta*cos_ksi;
+    double p1_lrf_y = p1_lrf*sin_theta*sin_ksi;
+    double p1_lrf_z = p1_lrf*cos_theta;
+    E1_lrf = sqrt(m1*m1 + p1_lrf_x*p1_lrf_x
+                  + p1_lrf_y*p1_lrf_y + p1_lrf_z*p1_lrf_z);
+    double p2_lrf_x = (tp2_lrf_x*(cos_phi*cos_theta*cos_ksi - sin_phi*sin_ksi)
+                       - tp2_lrf_z*sin_theta*cos_ksi);
+    double p2_lrf_y = (tp2_lrf_x*(-cos_phi*cos_theta*sin_ksi - sin_phi*cos_ksi)
+                       + tp2_lrf_z*sin_theta*sin_ksi);
+    double p2_lrf_z = tp2_lrf_x*(cos_phi*sin_theta) + tp2_lrf_z*cos_theta;
+    E2_lrf = sqrt(m2*m2 + p2_lrf_x*p2_lrf_x
+                  + p2_lrf_y*p2_lrf_y + p2_lrf_z*p2_lrf_z);
+    double p3_lrf_x = (tp3_lrf_x*(cos_phi*cos_theta*cos_ksi - sin_phi*sin_ksi)
+                       - tp3_lrf_z*sin_theta*cos_ksi);
+    double p3_lrf_y = (tp3_lrf_x*(-cos_phi*cos_theta*sin_ksi - sin_phi*cos_ksi)
+                       + tp3_lrf_z*(sin_theta*sin_ksi));
+    double p3_lrf_z = tp3_lrf_x*cos_phi*sin_theta + tp3_lrf_z*cos_theta;
+    E3_lrf = sqrt(m3*m3 + p3_lrf_x*p3_lrf_x
+                  + p3_lrf_y*p3_lrf_y + p3_lrf_z*p3_lrf_z);
+
+    double vx = mopx/moe;
+    double vy = mopy/moe;
+    double vz = mopz/moe;
+    double v2 = vx*vx + vy*vy + vz*vz;
+    double gamma     = 1./sqrt(1. - v2);
+    double gamma_m_1 = gamma - 1.;
+    double vp1 = vx*p1_lrf_x + vy*p1_lrf_y + vz*p1_lrf_z;
+    double vp2 = vx*p2_lrf_x + vy*p2_lrf_y + vz*p2_lrf_z;
+    double vp3 = vx*p3_lrf_x + vy*p3_lrf_y + vz*p3_lrf_z;
+
+    double daughter1_E  = gamma*(E1_lrf + vp1);
+    double daughter1_px = p1_lrf_x + (gamma_m_1*vp1/v2 + gamma*E1_lrf)*vx;
+    double daughter1_py = p1_lrf_y + (gamma_m_1*vp1/v2 + gamma*E1_lrf)*vy;
+    double daughter1_pz = p1_lrf_z + (gamma_m_1*vp1/v2 + gamma*E1_lrf)*vz;
+    double daughter1_t  = decay_time;
+    double daughter1_x  = decay_x;
+    double daughter1_y  = decay_y;
+    double daughter1_z  = decay_z;
+
+    double daughter2_E  = gamma*(E2_lrf + vp2);
+    double daughter2_px = p2_lrf_x + (gamma_m_1*vp2/v2 + gamma*E2_lrf)*vx;
+    double daughter2_py = p2_lrf_y + (gamma_m_1*vp2/v2 + gamma*E2_lrf)*vy;
+    double daughter2_pz = p2_lrf_z + (gamma_m_1*vp2/v2 + gamma*E2_lrf)*vz;
+    double daughter2_t  = decay_time;
+    double daughter2_x  = decay_x;
+    double daughter2_y  = decay_y;
+    double daughter2_z  = decay_z;
+
+    double daughter3_E  = gamma*(E3_lrf + vp3);
+    double daughter3_px = p3_lrf_x + (gamma_m_1*vp3/v2 + gamma*E3_lrf)*vx;
+    double daughter3_py = p3_lrf_y + (gamma_m_1*vp3/v2 + gamma*E3_lrf)*vy;
+    double daughter3_pz = p3_lrf_z + (gamma_m_1*vp3/v2 + gamma*E3_lrf)*vz;
+    double daughter3_t  = decay_time;
+    double daughter3_x  = decay_x;
+    double daughter3_y  = decay_y;
+    double daughter3_z  = decay_z;
+
+   daughter1->set_pid (dt1pid) ; 
+   daughter1->set_t   (daughter1_t) ; 
+   daughter1->set_x   (daughter1_x) ; 
+   daughter1->set_y   (daughter1_y) ; 
+   daughter1->set_z   (daughter1_z) ; 
+   daughter1->set_e   (daughter1_E) ; 
+   daughter1->set_px  (daughter1_px) ; 
+   daughter1->set_py  (daughter1_py) ; 
+   daughter1->set_pz  (daughter1_pz) ; 
+
+   daughter2->set_pid (dt2pid) ; 
+   daughter2->set_t   (daughter2_t) ; 
+   daughter2->set_x   (daughter2_x) ; 
+   daughter2->set_y   (daughter2_y) ; 
+   daughter2->set_z   (daughter2_z) ; 
+   daughter2->set_e   (daughter2_E) ; 
+   daughter2->set_px  (daughter2_px) ; 
+   daughter2->set_py  (daughter2_py) ; 
+   daughter2->set_pz  (daughter2_pz) ; 
+
+   daughter3->set_pid (dt3pid) ; 
+   daughter3->set_t   (daughter3_t) ; 
+   daughter3->set_x   (daughter3_x) ; 
+   daughter3->set_y   (daughter3_y) ; 
+   daughter3->set_z   (daughter3_z) ; 
+   daughter3->set_e   (daughter3_E) ; 
+   daughter3->set_px  (daughter3_px) ; 
+   daughter3->set_py  (daughter3_py) ; 
+   daughter3->set_pz  (daughter3_pz) ; 
+
+
+}
+
+
+
+
+
+

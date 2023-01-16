@@ -1,0 +1,256 @@
+#include "read_pdg.h"
+
+read_pdg::read_pdg(input_paramters &iparam_) : iparam(iparam_) {
+  particle_table.clear();
+  particle_pid_index_map.clear();
+}
+
+read_pdg::~read_pdg(){
+  particle_table.clear();
+  particle_pid_index_map.clear();
+}
+
+
+
+void read_pdg::read_and_store_particle_properties_with_decay_channels(std::string input_file){
+
+  double particles_taken_upto_max_mass = 3.0 ;  // in GeV
+  int      pid ; 
+  double   mass ; 
+  std::string   name ;
+  double   width ;
+  double   gspin ;
+  int      net_baryon ;
+  int      net_strange ;
+  int      net_charm ;
+  int      net_bottom ;
+  double   gisospin ;
+  int      charge ; 
+  int      number_of_decay_channels ; 
+
+  int      dummy_integer ; 
+  int      number_of_daughters;
+  double   branching_ratio[15] ; 
+  int      daughter_1[15] ; 
+  int      daughter_2[15] ; 
+  int      daughter_3[15] ; 
+  int      daughter_4[15] ; 
+  int      daughter_5[15] ; 
+  
+  // open the file
+  std::fstream File;
+  File.open(input_file.c_str(),std::ios::in);
+  if(!File){
+    cout<<"Input particle properties file not found."<<endl;
+    exit(1);
+  } 
+  else{
+    cout << "particle data base file : "    << input_file.c_str() << endl ;
+    cout << "reading particle data base file ..." << endl ; 
+  }
+  cout << "particles of mass < " << particles_taken_upto_max_mass << " GeV are taken." << endl ; 
+  
+  int particle_count = 0 ; 
+  int number = 0 ; 
+  pdg_properties* particle_buff ;
+  
+  while (!File.eof()){// loop on particles to read file
+    File.getline(buff,400);
+    if (!(*buff) || (*buff == '#'))
+      continue ;
+    iss = new istringstream(buff);   
+    (*iss) >> pid >> name >> mass >> width >> gspin >> net_baryon >> 
+      net_strange >> net_charm >> net_bottom >> gisospin >> charge >> number_of_decay_channels ;
+    if(mass > particles_taken_upto_max_mass ){
+      break ;
+    }
+    
+    particle_buff = new pdg_properties() ;
+    particle_buff->set_pid(pid) ;
+    if(does_same_pid_exist_previously(pid) == 1){
+      cout << "particles with PID " << pid
+	   << " exists previously." << endl ; 
+      exit(1); 
+    }
+    
+    particle_buff->set_name(name) ; 
+    particle_buff->set_mass(mass) ; 
+    particle_buff->set_width(width) ; 
+    particle_buff->set_gspin(gspin) ;
+    particle_buff->set_net_baryon(net_baryon) ;  
+    particle_buff->set_net_strange(net_strange) ;  
+    particle_buff->set_net_charm(net_charm) ;  
+    particle_buff->set_net_bottom(net_bottom) ;  
+    particle_buff->set_gisospin(gisospin) ;  
+    particle_buff->set_charge(charge) ;  
+    particle_buff->set_number_of_decay_channels(number_of_decay_channels) ; 
+    add_particle(particle_buff); 
+    delete iss ; 
+    
+    number++;
+    particle_count++;
+    
+    int stability_checker = 0 ; // flag to check stability by tracking the
+                                // kinematically allowed decay channels. 
+    for(int i=0; i < number_of_decay_channels; i++){ // loop on decay channels to read file
+      File.getline(buff,400);
+      iss = new istringstream(buff);   
+      (*iss) >> dummy_integer >> number_of_daughters >> branching_ratio[i] >> daughter_1[i] >> daughter_2[i] >> daughter_3[i] >> 
+	daughter_4[i] >> daughter_5[i] ;
+
+      // kinematically forbidden decay channel's
+      // daughter number supposed to be negative.
+      if(number_of_daughters > 0) 
+	stability_checker += 1 ; 
+      
+      decay_channel* mdecay_channel = new decay_channel( branching_ratio[i], daughter_1[i], daughter_2[i], daughter_3[i], daughter_4[i], daughter_5[i] ); 
+      particle_buff->get_decay_table()->add_decay_channel(*mdecay_channel) ; 
+      
+      if( number_of_decay_channels == 1 && daughter_1[i] == pid ){
+	get_particle_from_pid(pid)->set_stability(1) ;
+      } 
+      else{
+	get_particle_from_pid(pid)->set_stability(0) ;
+      } 
+      
+      delete iss ; 
+      number++;
+    } // loop on decay channels to read file
+    
+    if(stability_checker == 0 ){
+      get_particle_from_pid(pid)->set_stability(1) ;
+    }
+    
+    // for anti-particles
+    if(get_particle_from_pid(pid)->get_net_baryon() > 0 ){
+      std::ostringstream anti_particle_name ; 
+      anti_particle_name << "Anti-" << get_particle_from_pid(pid)->get_name() ; 
+      particle_buff = new pdg_properties() ;
+      particle_buff->set_pid(-pid) ;
+      if(does_same_pid_exist_previously(-pid) == 1){
+        cout << "particles with PID " << -pid << " exists previously." << endl ;
+        exit(1); 
+      }  
+      particle_buff->set_name(anti_particle_name.str()) ; 
+      particle_buff->set_mass(mass) ; 
+      particle_buff->set_width(width) ; 
+      particle_buff->set_gspin(gspin) ;
+      particle_buff->set_net_baryon(-net_baryon) ;  
+      particle_buff->set_net_strange(-net_strange) ;  
+      particle_buff->set_net_charm(-net_charm) ;  
+      particle_buff->set_net_bottom(-net_bottom) ;  
+      particle_buff->set_gisospin(gisospin) ;  
+      particle_buff->set_charge(-charge) ;  
+      particle_buff->set_number_of_decay_channels(number_of_decay_channels) ; 
+      particle_buff->set_stability(get_particle_from_pid(pid)->is_stable());
+      add_particle(particle_buff); 
+      particle_count++;
+      
+      for(int i=0; i < number_of_decay_channels ; i++){ // loop on decay channels 
+	if ( get_particle_from_pid(daughter_1[i])->get_net_baryon() != 0  || 
+	     ( get_particle_from_pid(daughter_1[i])->get_net_strange() != 0 || get_particle_from_pid(daughter_1[i])->get_charge() != 0 )  ){
+	  daughter_1[i] = - daughter_1[i] ; 
+        }
+	if ( get_particle_from_pid(daughter_2[i])->get_net_baryon() != 0  || 
+	     ( get_particle_from_pid(daughter_2[i])->get_net_strange() != 0 || get_particle_from_pid(daughter_2[i])->get_charge() != 0 )  ){
+	  daughter_2[i] = - daughter_2[i] ; 
+        }
+	if ( get_particle_from_pid(daughter_3[i])->get_net_baryon() != 0  || 
+	     ( get_particle_from_pid(daughter_3[i])->get_net_strange() != 0 || get_particle_from_pid(daughter_3[i])->get_charge() != 0 )  ){
+	  daughter_3[i] = - daughter_3[i] ; 
+        }
+	if ( get_particle_from_pid(daughter_4[i])->get_net_baryon() != 0  || 
+	     ( get_particle_from_pid(daughter_4[i])->get_net_strange() != 0 || get_particle_from_pid(daughter_4[i])->get_charge() != 0 )  ){
+	  daughter_4[i] = - daughter_4[i] ; 
+        }
+	if ( get_particle_from_pid(daughter_5[i])->get_net_baryon() != 0  || 
+	     ( get_particle_from_pid(daughter_5[i])->get_net_strange() != 0 || get_particle_from_pid(daughter_5[i])->get_charge() != 0 )  ){
+	  daughter_5[i] = - daughter_5[i] ; 
+        }
+	
+	decay_channel* mdecay_channel = new decay_channel( branching_ratio[i], daughter_1[i], daughter_2[i], daughter_3[i], daughter_4[i], daughter_5[i] ); 
+	particle_buff->get_decay_table()->add_decay_channel(*mdecay_channel) ; 
+      }
+    }
+        
+  } // loop on particles to read file
+  cout << "particle database file reading completed ..." << endl ; 
+  check_the_existance_of_all_mentioned_daughter_particles_in_decay_channels() ; 
+  cout << "particles added in database : " << particle_count << endl ; 
+} 
+
+
+int read_pdg::get_total_number_of_lines_of_the_file(std::string filename){
+  std::ifstream surface_file(filename.c_str(), std::ios::in);
+  int counted_lines = 0;
+  std::string temp_line;
+  while (std::getline(surface_file, temp_line)) {
+    ++counted_lines;
+  }
+  surface_file.close();
+  return(counted_lines);
+}
+
+void read_pdg::check_the_existance_of_all_mentioned_daughter_particles_in_decay_channels(){
+  int      daughter_1[15] ; 
+  int      daughter_2[15] ; 
+  int      daughter_3[15] ; 
+  int      daughter_4[15] ; 
+  int      daughter_5[15] ; 
+  for(int j = 0 ; j < get_total_particle_count() ; j++ ){
+    int total_decay_channels = get_particle_from_index(j)->get_number_of_decay_channels() ; 
+    for(int i = 0; i < total_decay_channels; i++ ){
+      daughter_1[i] = get_particle_from_index(j)->get_decay_table()->get_decay_channel(i)->get_daughter_1() ; 
+      daughter_2[i] = get_particle_from_index(j)->get_decay_table()->get_decay_channel(i)->get_daughter_2() ; 
+      daughter_3[i] = get_particle_from_index(j)->get_decay_table()->get_decay_channel(i)->get_daughter_3() ; 
+      daughter_4[i] = get_particle_from_index(j)->get_decay_table()->get_decay_channel(i)->get_daughter_4() ; 
+      daughter_5[i] = get_particle_from_index(j)->get_decay_table()->get_decay_channel(i)->get_daughter_5() ; 
+      
+      if( daughter_1[i] !=0 && does_the_particle_exist(daughter_1[i]) != 1 ){ 
+	cout << "In decay channel of " << get_particle_from_index(j)->get_pid() << " " ; 
+	cout << "daughter particle with id " << daughter_1[i] << " does not exist" << endl ; 
+        exit(1);
+      }
+      if( daughter_2[i] !=0 && does_the_particle_exist(daughter_2[i]) != 1 ){ 
+	cout << "In decay channel of " << get_particle_from_index(j)->get_pid() << " " ; 
+	cout << "daughter particle with id " << daughter_2[i] << " does not exist" << endl ; 
+        exit(1);
+      }
+      if( daughter_3[i] !=0 && does_the_particle_exist(daughter_3[i]) != 1 ){ 
+	cout << "In decay channel of " << get_particle_from_index(j)->get_pid() << " " ; 
+	cout << "daughter particle with id " << daughter_3[i] << " does not exist" << endl ;
+        exit(1); 
+      }
+      if( daughter_4[i] !=0 && does_the_particle_exist(daughter_4[i]) != 1 ){ 
+	cout << "In decay channel of " << get_particle_from_index(j)->get_pid() << " " ; 
+	cout << "daughter particle with id " << daughter_4[i] << " does not exist" << endl ;
+        exit(1); 
+      }
+      if( daughter_5[i] !=0 && does_the_particle_exist(daughter_5[i]) != 1 ){ 
+	cout << "In decay channel of " << get_particle_from_index(j)->get_pid() << " " ; 
+	cout << "daughter particle with id " << daughter_5[i] << " does not exist" << endl ;
+        exit(1); 
+      }
+      
+    }
+  }
+  cout << "[Checked] Every decay channel is OK..." << endl ; 
+  cout << "Daughter particles in each channel exist in the particle data base." << endl ; 
+}
+
+
+int read_pdg::does_same_pid_exist_previously(int PID){
+  int sum = 0 ;  
+  for(int j = 0 ; j < get_total_particle_count() ; j++ ){
+    if ( PID == get_particle_from_index(j)->get_pid() ){
+      sum += 1 ;
+    }
+  }
+  if (sum > 0)
+    return 1 ; 
+  else
+    return 0 ; 
+}
+
+
+
