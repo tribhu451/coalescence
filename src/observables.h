@@ -22,7 +22,11 @@ class observables{
     void calculate_v2_vs_y_or_eta(int yflag, double psi1,  double pT_min, double pT_max );
     void calculate_v2_pt( int yflag, double Rap_min, double Rap_max );
     void calculate_v1_pt( int yflag, double Rap_min, double Rap_max );
-    void perform_coalescence();
+    void perform_coalescence_of_p_n_to_form_deuteron();
+    void perform_coalescence_of_antip_antin_to_form_antideuteron();
+    void perform_coalescence_of_p_n_n_to_form_triton();
+    void perform_coalescence_of_p_p_n_to_form_He3();
+
 
 
   private :
@@ -33,6 +37,10 @@ class observables{
     double proton_mass ; 
     double neutron_mass ; 
     double deutron_sigma_rho ; 
+    double triton_sigma_rho ; 
+    double triton_sigma_lambda ;
+    double He3_sigma_lambda ; 
+    double He3_sigma_rho ;  
     input_paramters &iparam ; 
     read_input_file* rif ;
     double fit_a_straight_line_and_get_slope(int n, double *x, double *y) ; 

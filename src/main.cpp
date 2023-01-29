@@ -51,8 +51,20 @@ int main(int argc, char **argv){
 
   std::cout << "Performing Coalescence ... " 
             << std::endl ; 
-  OBJ->perform_coalescence();
-  std::cout << "Coalescence done and deutrons " 
+  OBJ->perform_coalescence_of_p_n_to_form_deuteron();
+  std::cout << "Coalescence of protons and neutrons done. The deuterons " 
+            << "are stored in particles list ... "
+            << std::endl ; 
+  OBJ->perform_coalescence_of_antip_antin_to_form_antideuteron();
+  std::cout << "Coalescence of anti-protons and anti-neutrons done. The anti-deuterons " 
+            << "are stored in particles list ... "
+            << std::endl ; 
+  OBJ->perform_coalescence_of_p_n_n_to_form_triton();
+  std::cout << "3 body Coalescence of protons and neutrons done. The tritons " 
+            << "are stored in particles list ... "
+            << std::endl ; 
+  OBJ->perform_coalescence_of_p_p_n_to_form_He3();
+  std::cout << "3 body Coalescence of protons and neutrons done. The He3's " 
             << "are stored in particles list ... "
             << std::endl ; 
 
