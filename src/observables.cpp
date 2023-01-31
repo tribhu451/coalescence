@@ -162,6 +162,7 @@ void observables::calculate_dndy_y( double pT_min, double pT_max ){
       double Py  = Event->get_particle(jj)->get_py()  ; 
       double Pz  = Event->get_particle(jj)->get_pz()  ; 
       double E   = Event->get_particle(jj)->get_e()   ; 
+      double W   = Event->get_particle(jj)->get_weight()   ; 
       //double P = sqrt( Px * Px + Py * Py + Pz * Pz )  ;
       double Rap = 0.5 * TMath::Log( ( E + Pz ) / (E - Pz) );
       double Pt = sqrt( Px * Px + Py * Py )  ;
@@ -200,16 +201,16 @@ void observables::calculate_dndy_y( double pT_min, double pT_max ){
         H1D_DNDY_Y[8]->Fill(Rap,1.);
       }
       if(PID == 11111){
-        H1D_DNDY_Y[9]->Fill(Rap,1.);
+        H1D_DNDY_Y[9]->Fill(Rap,W);
       }
       if(PID == -11111){
-        H1D_DNDY_Y[10]->Fill(Rap,1.);
+        H1D_DNDY_Y[10]->Fill(Rap,W);
       }
       if(PID == 33333){
-        H1D_DNDY_Y[11]->Fill(Rap,1.);
+        H1D_DNDY_Y[11]->Fill(Rap,W);
       }
       if(PID == 44444){
-        H1D_DNDY_Y[12]->Fill(Rap,1.);
+        H1D_DNDY_Y[12]->Fill(Rap,W);
       }
 
      } // particle loop
@@ -659,6 +660,7 @@ void observables::calculate_v2_vs_y_or_eta(int yflag, double psi2,  double pT_mi
       double Pz  = Event->get_particle(jj)->get_pz()  ; 
       double E   = Event->get_particle(jj)->get_e()   ; 
       double P = sqrt( Px * Px + Py * Py + Pz * Pz )  ;
+      double W   = Event->get_particle(jj)->get_weight()   ; 
       double Pt = sqrt( Px * Px + Py * Py )  ;
 
       if(Pt > pT_max || Pt < pT_min)
@@ -712,16 +714,16 @@ void observables::calculate_v2_vs_y_or_eta(int yflag, double psi2,  double pT_mi
         PROFILE_V2_Y[8]->Fill(Rap,v2);
       }
       if(PID == 11111){
-        PROFILE_V2_Y[9]->Fill(Rap,v2);
+        PROFILE_V2_Y[9]->Fill(Rap,v2,W);
       }
       if(PID == -11111){
-        PROFILE_V2_Y[10]->Fill(Rap,v2);
+        PROFILE_V2_Y[10]->Fill(Rap,v2,W);
       }
       if(PID == 33333){
-        PROFILE_V2_Y[11]->Fill(Rap,v2);
+        PROFILE_V2_Y[11]->Fill(Rap,v2,W);
       }
       if(PID == 44444){
-        PROFILE_V2_Y[12]->Fill(Rap,v2);
+        PROFILE_V2_Y[12]->Fill(Rap,v2,W);
       }
 
 
@@ -804,6 +806,7 @@ void observables::calculate_v2_pt( int yflag, double Rap_min, double Rap_max ){
       double Py  = Event->get_particle(jj)->get_py()  ; 
       double Pz  = Event->get_particle(jj)->get_pz()  ; 
       double E   = Event->get_particle(jj)->get_e()   ; 
+      double W   = Event->get_particle(jj)->get_weight()   ; 
       double P = sqrt( Px * Px + Py * Py + Pz * Pz )  ;
       double Rap ; 
 
@@ -856,16 +859,16 @@ void observables::calculate_v2_pt( int yflag, double Rap_min, double Rap_max ){
         PROFILE_V2_PT[8]->Fill(Pt,v2);
       }
       if(PID == 11111){
-        PROFILE_V2_PT[9]->Fill(Pt,v2);
+        PROFILE_V2_PT[9]->Fill(Pt,v2,W);
       }
       if(PID == -11111){
-        PROFILE_V2_PT[10]->Fill(Pt,v2);
+        PROFILE_V2_PT[10]->Fill(Pt,v2,W);
       }
       if(PID == 33333){
-        PROFILE_V2_PT[11]->Fill(Pt,v2);
+        PROFILE_V2_PT[11]->Fill(Pt,v2,W);
       }
       if(PID == 44444){
-        PROFILE_V2_PT[12]->Fill(Pt,v2);
+        PROFILE_V2_PT[12]->Fill(Pt,v2,W);
       }
 
 
@@ -950,6 +953,7 @@ void observables::calculate_v1_pt( int yflag, double Rap_min, double Rap_max ){
       double Py  = Event->get_particle(jj)->get_py()  ; 
       double Pz  = Event->get_particle(jj)->get_pz()  ; 
       double E   = Event->get_particle(jj)->get_e()   ; 
+      double W   = Event->get_particle(jj)->get_weight()   ; 
       double P = sqrt( Px * Px + Py * Py + Pz * Pz )  ;
       double Rap ; 
 
@@ -1002,16 +1006,16 @@ void observables::calculate_v1_pt( int yflag, double Rap_min, double Rap_max ){
         PROFILE_V1_PT[8]->Fill(Pt,v1);
       }
       if(PID == 11111){
-        PROFILE_V1_PT[9]->Fill(Pt,v1);
+        PROFILE_V1_PT[9]->Fill(Pt,v1,W);
       }
       if(PID == -11111){
-        PROFILE_V1_PT[10]->Fill(Pt,v1);
+        PROFILE_V1_PT[10]->Fill(Pt,v1,W);
       }
       if(PID == 33333){
-        PROFILE_V1_PT[11]->Fill(Pt,v1);
+        PROFILE_V1_PT[11]->Fill(Pt,v1,W);
       }
       if(PID == 44444){
-        PROFILE_V1_PT[12]->Fill(Pt,v1);
+        PROFILE_V1_PT[12]->Fill(Pt,v1,W);
       }
 
      } // particle loop
